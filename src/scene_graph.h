@@ -24,7 +24,7 @@ typedef struct Node {
 } Node;
 
 void recursiveUpdate(Node* node);
-void rotationBehavior(Node* node);
+void rotationBehavior(Node* node, float);
 void freeNode(Node* node);
 
 Node* createNode(SDL_Renderer* renderer, float x, float y, float angle, float scale, SDL_Texture* texture) {
@@ -117,7 +117,7 @@ void drawNode(Node* node, float parentX, float parentY, float parentAngle, float
     }
 }
 
-void rotationBehavior(Node* node)
+void rotationBehavior(Node* node, float angle)
 {
 	static float rotationIncrement = 0;
 	static float sinIncrement = 0.01;
@@ -142,5 +142,84 @@ void recursiveUpdate(Node* node)
 	}
 }
 
+void freeNode(Node* node) {
+    for (int i = 0; i < node->numChildren; ++i) {
+        freeNode(node->children[i]);
+    }
+    if (node->children != NULL) {
+        free(node->children);
+    }
+	if (node->actions != NULL) {
+        free(node->actions);
+    }
+    SDL_DestroyTexture(node->texture);
+    free(node);
+}
 
+typedef struct Game
+{
+	SDL_Window* window;
+	SDL_Renderer* renderer;
+} Game;
+
+Game gameCreate(char *windowName, int windowWidth, int windowHeight)
+{
+	Game game = {0};
+
+ 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
+        exit(-1);
+    }
+
+	#ifndef __EMSCRIPTEN__
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+        SDL_Log("Unable to initialize SDL_image: %s", IMG_GetError());
+        SDL_Quit();
+        exit(-1);
+    }
+	#endif
+    game.window = SDL_CreateWindow(windowName, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, windowWidth, windowHeight, SDL_WINDOW_SHOWN);
+    if (!game.window) {
+        SDL_Log("Unable to create window: %s", SDL_GetError());
+        IMG_Quit();
+        SDL_Quit();
+        exit(-1);
+    }
+
+    game.renderer = SDL_CreateRenderer(game.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!game.renderer) {
+        SDL_Log("Unable to create renderer: %s", SDL_GetError());
+        SDL_DestroyWindow(game.window);
+        IMG_Quit();
+        SDL_Quit();
+        exit(-1);
+    }
+
+	return game;
+}
+
+void gameDestroy(Game game)
+{
+    SDL_DestroyRenderer(game.renderer);
+    SDL_DestroyWindow(game.window);
+    IMG_Quit();
+    SDL_Quit();
+}
+
+int handleQuitEvents()
+{
+    SDL_Event e;
+	int running = 1;
+	while (SDL_PollEvent(&e)) {
+		if (e.type == SDL_QUIT) {
+			running = 0;
+		} else if (e.type == SDL_KEYDOWN) {
+			if (e.key.keysym.sym == SDLK_ESCAPE) { // Salir si se presiona Esc
+				running = 0;
+			}
+		}
+	}
+
+	return running;
+}
 #endif
