@@ -1,146 +1,94 @@
-#include <SDL2/SDL.h>
-#include <SDL2/SDL2_gfxPrimitives.h>
-#include <SDL2/SDL_image.h>
-#include <math.h>
+#include "scenegraph.h"
+#include <stdio.h>
+#include <stdbool.h>
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten/emscripten.h>
-#include <emscripten/html5.h>
-#endif
-
-#include "scene_graph.h"
-
-void rotateXAction(Node* node)
+bool main_loop(SDL_Renderer* renderer, node_t* root)
 {
-	static float phase = 0;
-	node->x = sin(phase+=-.05) * 100 + 50;
+	static Uint32 old_time;
+	Uint32 new_time;
+	
+	if(old_time == 0) old_time = SDL_GetTicks();
+	new_time = SDL_GetTicks();
+
+	float delta_time = (new_time - old_time) / 1000.;
+
+	SDL_Event e;
+
+	while(SDL_PollEvent(&e))
+	{
+		switch(e.type)
+		{
+			case SDL_QUIT:
+				return false;
+			case SDL_KEYDOWN:
+				if(e.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
+					return false;
+
+				if(e.key.keysym.scancode == SDL_SCANCODE_R)
+					SDL_RenderClear(renderer);
+					
+				break;
+			
+		}
+	}
+
+	root->angle += 1.0 * delta_time;
+
+	root->childs[0]->angle += 1.0 * delta_time;
+
+	// SDL_RenderClear(renderer);
+
+	node_draw(root, NULL, global_coordinates_create(), 0, renderer);
+
+	SDL_RenderPresent(renderer);
+
+	old_time = new_time;
+	return true;
 }
 
-void rotateYAction(Node* node)
+int main(void)
 {
-	static float phase = 0;
-	node->y = cos(phase+=-.05) * 100 + 50;
+	static Uint32 old_time;
+
+	if(SDL_Init(SDL_INIT_VIDEO))
+	{
+		printf("Error initializing SDL: %s\n", SDL_GetError());
+		exit(-1);
+	}
+
+	SDL_Window* window = SDL_CreateWindow("NodeTest", 0, 0, 800, 600, SDL_WINDOW_SHOWN);
+
+	if(window == NULL)
+	{
+		printf("Error creating window: %s\n", SDL_GetError());
+		exit(-1);
+	}
+
+	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+
+	node_t* root = node_create("assets/sprite.png", renderer);
+	
+	root->position.x = 400;
+	root->position.y = 300;
+	root->scale.x = root->scale.y = .8;
+	root->angle = 1.;
+
+	node_t* child = node_create("assets/sprite.png", renderer);
+
+	child->position.x = 41;
+	child->position.y = 0;
+
+	child->scale.x = child->scale.y = .9;
+
+	node_add_child(child, child);
+
+	node_add_child(root, child);
+
+	while(main_loop(renderer, root));
+
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+	
+	return 0;
 }
-
-int running = 1;
-float angle = 0.0f;
-Node* root;
-Node* childNode = 0;
-
-
-#define CHILD_COUNT 52
-
-Node* childs[CHILD_COUNT] = {0};
-
-
-Game game;
-
-void main_loop()
-{
-	static Uint32 next_time;
-	next_time = SDL_GetTicks() + TICK_INTERVAL;
-
-	running = handleQuitEvents();
-
-	recursiveUpdate(root);
-
-	angle += 0.01f;
-
-	SDL_RenderClear(game.renderer);
-
-	drawNode(root, 400, 300, 0, 1);
-
-	SDL_RenderPresent(game.renderer);
-
-	SDL_Delay(time_left());
-	next_time += TICK_INTERVAL;
-}
-
-int main(int argc, char* argv[]) {
-   
-	game = gameCreate("This is an unnamed window", 800, 600);
-
-    SDL_Texture* texture = loadTexture("assets/sprite.png", game.renderer); 
-    if (!texture) {
-        SDL_Log("Unable to create texture");
-        SDL_DestroyRenderer(game.renderer);
-        SDL_DestroyWindow(game.window);
-        IMG_Quit();
-        SDL_Quit();
-        return 1;
-    }
-
-	root = createNode(game.renderer, 0.0f, 0.0f, 0.0f, 1.0f, texture);
-
-	Node* lastNode = root;
-
-	int childId = 0;
-
-	float scale = 1.0;
-
-	float scaleIncrement = 1.0 / CHILD_COUNT;
-
-	for(int childCount = 0; childCount < CHILD_COUNT / 4;++childCount)
-	{
-		childNode = createNode(game.renderer, 50, 0.0f, 0.0f, scale, texture);
-		addChild(lastNode, childNode);
-		lastNode = childNode;
-		childs[childId++] = childNode;
-		scale -= scaleIncrement;
-	}
-
-	scale = 1.;
-	lastNode = root;
-
-	for(int childCount = 0; childCount < CHILD_COUNT / 4;++childCount)
-	{
-		childNode = createNode(game.renderer, -50.f, 0.0f, 0.0f, scale, texture);
-		addChild(lastNode, childNode);
-		lastNode = childNode;
-		childs[childId++] = childNode;
-		scale -= scaleIncrement;
-	}
-	scale = 1.;
-	lastNode = root;
-
-	for(int childCount = 0; childCount < CHILD_COUNT / 4;++childCount)
-	{
-		childNode = createNode(game.renderer, 0.f, 50.0f, 0.0f, scale, texture);
-		addChild(lastNode, childNode);
-		lastNode = childNode;
-		childs[childId++] = childNode;
-		scale -= scaleIncrement;
-	}
-	scale = 1.;
-	lastNode = root;
-
-	for(int childCount = 0; childCount < CHILD_COUNT / 4;++childCount)
-	{
-		childNode = createNode(game.renderer, 0.f, -50.0f, 0.0f, scale, texture);
-		addChild(lastNode, childNode);
-		lastNode = childNode;
-		childs[childId++] = childNode;
-		scale -= scaleIncrement;
-	}
-
-	for(int i = 0;i < CHILD_COUNT; ++i)
-	{
-		addAction(childs[i], rotationBehavior);
-	}
-
-
-#ifdef __EMSCRIPTEN__
-	emscripten_set_main_loop(main_loop, 0, false);
-#else
-	while (running) {
-		main_loop();
-	}
-    freeNode(root);
-    SDL_DestroyTexture(texture);
-	gameDestroy(game);
-#endif
-
-    return 0;
-}
-
 
