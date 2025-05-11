@@ -16,6 +16,12 @@ DEFINE_ARRAY_TYPE_DYNAMIC(arr_available_bullets_t, bullet_t *, 2);
 
 arr_available_bullets_t* bullet_pool;
 
+void bullet_destroy(bullet_t* bullet)
+{
+	bullet->node.disabled = true;
+	arr_available_bullets_t_push(bullet_pool, bullet);
+}
+
 void bullet_update(node_t* node, float delta_time)
 {
 	bullet_t *bullet = (bullet_t*)node;
@@ -24,7 +30,7 @@ void bullet_update(node_t* node, float delta_time)
 
 	if(node->position.y > 590 || node->position.y < 10 || node->position.x > 790 || node->position.x < 10 )
 	{
-		bullet_destroy(node);
+		bullet_destroy(bullet);
 	}
 }
 
@@ -49,16 +55,8 @@ bullet_t* bullet_create(SDL_Texture* texture, vec2_t center, float angle, float 
 	vec2_t velocity = {.x = angle_sin * velocity_s, .y = angle_cos * velocity_s};
 
 	bullet->velocity = velocity;
-
-
 	
 	return bullet;
-}
-
-void bullet_destroy(bullet_t* bullet)
-{
-	bullet->node.disabled = true;
-	arr_available_bullets_t_push(bullet_pool, bullet);
 }
 
 #endif

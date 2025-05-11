@@ -34,6 +34,18 @@ vec2_t vec2_scale(vec2_t a, float scale)
 	};
 }
 
+vec2_t vec2_normalize(vec2_t a)
+{
+	float length = sqrtf(a.x * a.x + a.y * a.y);
+	
+	if(length == 0)
+	{
+		 return (vec2_t){0};
+	}
+
+	return (vec2_t){a.x / length, a.y / length};
+}
+
 // Coordinate System
 typedef struct global_coordinates_t
 {
